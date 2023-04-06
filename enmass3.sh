@@ -9,23 +9,49 @@ set -o errexit  # fail on exit
 set -o nounset  # fail on variable issues
 set -o pipefail # fail for pipe related stuff
 
+function info() {
+    printf "\r  [ \033[00;34m>..\033[0m ] %s\n" "$1"
+}
+
+function question() {
+    printf "\r  [ \033[0;33m??\033[0m ] %s\n" "$1"
+}
+
+function success() {
+    printf "\r\033[2K  [ \033[00;32mOK\033[0m ] %s\n" "$1"
+}
+
+function fail() {
+    printf "\r\033[2K  [\033[0;31mFAIL\033[0m] %s\n" "$1"
+    echo ''
+    exit 1
+}
+
+function install_dependencies() {
+    sudo apt-get update -qq >/dev/null
+    sudo apt-get install -y -qq git make gcc libpcap-dev >/dev/null || fail "Failed to install dependencies"
+    return 0
+}
+
 function check_masscan() {
     if ! [ -x "$(command -v masscan)" ]; then
-        :
-        #installing masscan
-        printf "Masscan is not installed, Installing it!!\n"
+        info "Masscan is not installed, Installing now!!"
         #building from source
         #echo 'Installing Dependancies for masscan'
-        #apt-get --assume-yes install git libpcap-dev make gcc 1>/dev/null 2>depenadancies.error_log.log
         #cd /opt && git clone https://github.com/robertdavidgraham/masscan 1>/dev/null 2>depenadancies.error_log.log
         #cd /opt/masscan && make 1>/dev/null 2>depenadancies.error_log.log
 
         #using repo
-        apt install masscan 1>/dev/null 2>depenadancies.error_log.log
-        printf "Masscan Installed\n"
-        exit
+        sudo apt-get install -y -qq masscan 2>./log/depenadancies.error_log.log ||
+            fail "Couldn't install masscan"
+
+        success "Masscan Installed"
+
+        return 0
     else
         :
+        success "Masscan already installed"
+
         #echo 'masscan installed'
         #return 0
     fi
@@ -35,16 +61,22 @@ function check_masscan() {
 function check_nrich() {
     if ! [ -x "$(command -v nrich)" ]; then
         :
-        #installing masscan
-        printf 'Nrich not installed\n'
-        printf "installing nrich\n"
-        apt install wget 1>/dev/null 2>depenadancies.error_log.log
-        mkdir /opt/nrich && cd "$_" && wget https://gitlab.com/api/v4/projects/33695681/packages/generic/nrich/latest/nrich_latest_amd64.deb 1>/dev/null 2>depenadancies.error_log.log
-        apt install /opt/nrich/nrich_latest_amd64.deb 1>/dev/null 2>depenadancies.error_log.log
-        printf "Nrich Installed!"
-        exit
+
+        info "Nrich is not installed, Installing now!!"
+
+        sudo apt-get install -y -qq wget 2>depenadancies.error_log.log
+        # mkdir -p /tmp && cd "$_"
+        wget -q https://gitlab.com/api/v4/projects/33695681/packages/generic/nrich/latest/nrich_latest_amd64.deb -O /tmp/nrich_latest_amd64.deb 2>./log/depenadancies.error_log.log
+
+        sudo apt-get install -y -qq /tmp/nrich_latest_amd64.deb 2>./log/depenadancies.error_log.log ||
+            fail "Couldn't install Nrich"
+
+        success "Nrich Installed" ||
+            return 0
     else
         :
+        success "Nrich already installed"
+
         #echo 'nrich installed'
         #return 0
     fi
@@ -54,14 +86,18 @@ function check_nrich() {
 function check_jq() {
     if ! [ -x "$(command -v jq)" ]; then
         :
-        #jq not found installing jq
-        printf 'JQ not installed\n'
-        printf "Installing jq\n"
-        apt install jq 1>/dev/null 2>depenadancies.error_log.log
-        printf "jq Installed!"
-        exit
+        info "jq is not installed, Installing now!!"
+
+        sudo apt-get install -qq -y jq 2>./log/depenadancies.error_log.log ||
+            fail "Couldn't install jq"
+
+        success "jq Installed"
+
+        return 0
     else
         :
+        success "JQ already installed"
+
         #echo 'jq already installed'
         #return 0
     fi
@@ -71,27 +107,26 @@ function check_jq() {
 function check_inputFile() {
     inputFile="$1"
     if [ -f "${inputFile}" ]; then
-        echo "${inputFile} exists"
+        success "${inputFile} exists"
 
-        if grep -q -E '[0-9]{1,3}(?:\.[0-9]{1,3}){0,3}\/[0-9]+' "${inputFile}"; then
-            echo "${inputFile} format is valid"
+        if grep -q -E '[0-9]{1,3}(\.[0-9]{1,3}){0,3}/[0-9]+' "${inputFile}"; then
+            info "${inputFile} format is valid"
             return 0
         else
-            echo "${inputFile} has invalid IP CIDR blocks, provide one in a valid format"
+            question "${inputFile} has invalid IP CIDR blocks, provide one in a valid format"
         fi
     else
-        echo "${inputFile} does not exist, please provide a valid file name"
-        exit
+        fail "${inputFile} does not exist, please provide a valid file name"
     fi
 }
 
 # function masscan_grepaableOutput()
 # {
-#     sudo masscan -iL "$1" --excludeFile AntiScanIPList.txt --top-ports 20 ---max-rate 100000 -oG masscan_output.txt 2>|./masscan.error_log.log
+#     sudo masscan -iL "$1" --excludeFile AntiScanIPList.txt --top-ports 20 ---max-rate 100000 -oG masscan_output.txt 2>|./log/masscan.error_log.log
 # }
 
 function masscan_jsonOutput() {
-    sudo masscan -iL "$1" --excludeFile AntiScanIPList.txt --top-ports 20 ---max-rate 100000 -oJ masscan_output.json 2>|./masscan.error_log.log
+    sudo masscan -iL "$1" --excludeFile files/AntiScanIPList.txt --top-ports 20 ---max-rate 100000 -oJ masscan_output.json 2>|./log/masscan.error_log.log
 }
 
 # function extractIp_awk()
@@ -102,7 +137,7 @@ function masscan_jsonOutput() {
 # }
 
 function extractIp_jq() {
-    jq -r '.[].ip' masscan_output.json >>nrich_input_from_json
+    jq -r '.[].ip' masscan_output.json >>nrich_input.txt
 }
 
 function nrichScan_json() {
@@ -111,18 +146,17 @@ function nrichScan_json() {
 
 # function nrichScan_ndjson()
 # {
-#     nrich --output ndjson nrich_input.txt 1>|./enmass3.ndjson 2>|./nrich.error_log.log
+#     nrich --output ndjson nrich_input.txt 1>|./enmass3.ndjson 2>|./log/nrich.error_log.log
 # }
 
 # function nrichScan_shell()
 # {
-#     nrich --output shell nrich_input.txt 1>|./enmass3.txt 2>|./nrich.error_log.log
+#     nrich --output shell nrich_input.txt 1>|./enmass3.txt 2>|./log/nrich.error_log.log
 # }
 
 trapcleanup() {
     #rm -f nrich_input.txt
-    #rm -f
-    echo 'Trapped!'
+    fail 'Trapped!'
 }
 
 main() {
@@ -130,44 +164,37 @@ main() {
     clear
 
     # checking for sudo perms
-    if [ "$EUID" -ne 0 ]; then
-        echo "Run the script as root"
-        echo "Exitting..."
-        exit
-    fi
+    # if [ "$EUID" -ne 0 ]; then
+    #     question "Run the script as root"
+    #     fail "Exitting..."
+    # fi
 
     # checking if inputfile is provided as a parameter
     [[ "$#" -eq "0" ]] && {
-        echo "No inputfile provided"
-        exit 1
-    } || {
-        var=$1
-        echo -n "${var:?No file}" "being used as the input file"
-        echo ""
-    }
+        fail "No inputfile provided"
 
-    # check depenadancies
-    if check_masscan && check_nrich; then
+    }
+    # || {
+    #     fileName=$1
+    #     info "${fileName:?No file} being used as the input file"
+    #     echo ""
+    # }
+
+    if install_dependencies && check_masscan && check_nrich && check_jq; then
         :
-        #echo " -> All Dependancies Installed..."
-        # check meta input file
         if check_inputFile "$@"; then
             :
-            #echo " -> All checks done"
+            fileName=$1
+            info "Running masscan..."
+            masscan_jsonOutput "$fileName"
 
-            echo "Running masscan..."
-            # running masscan
-            masscan_jsonOutput "$1"
-
-            echo "Extracting Ips"
-            # extracting ips from json output
+            info "Extracting Ips"
             extractIp_jq
 
-            echo "Running nrich..."
-            # running nrich
-            nrich_scan_json
+            info "Running nrich..."
+            nrichScan_json
 
-            echo "Scanning complete! Look at enmass.json for the results"
+            success "Scanning complete! Look at enmass.json for the results"
             times
         fi
     fi
