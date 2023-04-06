@@ -1,0 +1,11 @@
+# Ignore compiled shell scripts
+*.sh~
+
+# Ignore log files
+*.log
+
+# Ignore backup files
+*~
+
+# Ignore trash directory
+.trash
