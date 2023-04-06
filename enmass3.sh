@@ -5,15 +5,12 @@
 #bash -x driver.sh 	# more vergbose trace
 
 #Fail safe
-set -o errexit # fail on exit
-set -o nounset # fail on variable issues
+set -o errexit  # fail on exit
+set -o nounset  # fail on variable issues
 set -o pipefail # fail for pipe related stuff
 
-
-function check_masscan()
-{
-    if ! [ -x "$(command -v masscan)" ]
-    then
+function check_masscan() {
+    if ! [ -x "$(command -v masscan)" ]; then
         :
         #installing masscan
         printf "Masscan is not installed, Installing it!!\n"
@@ -22,7 +19,7 @@ function check_masscan()
         #apt-get --assume-yes install git libpcap-dev make gcc 1>/dev/null 2>depenadancies.error_log.log
         #cd /opt && git clone https://github.com/robertdavidgraham/masscan 1>/dev/null 2>depenadancies.error_log.log
         #cd /opt/masscan && make 1>/dev/null 2>depenadancies.error_log.log
-        
+
         #using repo
         apt install masscan 1>/dev/null 2>depenadancies.error_log.log
         printf "Masscan Installed\n"
@@ -35,13 +32,10 @@ function check_masscan()
 
 }
 
-
-function check_nrich()
-{
-    if ! [ -x "$(command -v nrich)" ]
-    then
+function check_nrich() {
+    if ! [ -x "$(command -v nrich)" ]; then
         :
-        #installing masscan 
+        #installing masscan
         printf 'Nrich not installed\n'
         printf "installing nrich\n"
         apt install wget 1>/dev/null 2>depenadancies.error_log.log
@@ -57,12 +51,10 @@ function check_nrich()
 
 }
 
-function check_jq()
-{
-    if ! [ -x "$(command -v jq)" ]
-    then
+function check_jq() {
+    if ! [ -x "$(command -v jq)" ]; then
         :
-        #jq not found installing jq 
+        #jq not found installing jq
         printf 'JQ not installed\n'
         printf "Installing jq\n"
         apt install jq 1>/dev/null 2>depenadancies.error_log.log
@@ -76,8 +68,7 @@ function check_jq()
 
 }
 
-function check_inputFile()
-{
+function check_inputFile() {
     inputFile="$1"
     if [ -f "${inputFile}" ]; then
         echo "${inputFile} exists"
@@ -88,23 +79,20 @@ function check_inputFile()
         else
             echo "${inputFile} has invalid IP CIDR blocks, provide one in a valid format"
         fi
-    else 
+    else
         echo "${inputFile} does not exist, please provide a valid file name"
         exit
     fi
 }
-
 
 # function masscan_grepaableOutput()
 # {
 #     sudo masscan -iL "$1" --excludeFile AntiScanIPList.txt --top-ports 20 ---max-rate 100000 -oG masscan_output.txt 2>|./masscan.error_log.log
 # }
 
-function masscan_jsonOutput()
-{
+function masscan_jsonOutput() {
     sudo masscan -iL "$1" --excludeFile AntiScanIPList.txt --top-ports 20 ---max-rate 100000 -oJ masscan_output.json 2>|./masscan.error_log.log
 }
-
 
 # function extractIp_awk()
 # {
@@ -113,14 +101,11 @@ function masscan_jsonOutput()
 #     done < masscan_output.txt
 # }
 
-function extractIp_jq()
-{
-    jq -r '.[].ip' masscan_output.json >> nrich_input_from_json
+function extractIp_jq() {
+    jq -r '.[].ip' masscan_output.json >>nrich_input_from_json
 }
 
-
-function nrichScan_json()
-{
+function nrichScan_json() {
     nrich --output json nrich_input.txt 1>|./enmass3.json 2>|./nrich.error_log.log
 }
 
@@ -134,46 +119,50 @@ function nrichScan_json()
 #     nrich --output shell nrich_input.txt 1>|./enmass3.txt 2>|./nrich.error_log.log
 # }
 
-
-trapcleanup()
-{
+trapcleanup() {
     #rm -f nrich_input.txt
-    #rm -f 
+    #rm -f
     echo 'Trapped!'
 }
 
-main()
-{
+main() {
     trap trapcleanup INT TERM ERR
     clear
 
-	# checking for sudo perms
-    if [ "$EUID" -ne 0 ];then
+    # checking for sudo perms
+    if [ "$EUID" -ne 0 ]; then
         echo "Run the script as root"
         echo "Exitting..."
         exit
     fi
 
     # checking if inputfile is provided as a parameter
-    [[ "$#" -eq "0" ]] && { echo "No inputfile provided"; exit 1; } || { var=$1; echo -n "${var:?No file}" "being used as the input file"; echo ""; }
-    
+    [[ "$#" -eq "0" ]] && {
+        echo "No inputfile provided"
+        exit 1
+    } || {
+        var=$1
+        echo -n "${var:?No file}" "being used as the input file"
+        echo ""
+    }
+
     # check depenadancies
-    if check_masscan && check_nrich ; then
+    if check_masscan && check_nrich; then
         :
         #echo " -> All Dependancies Installed..."
         # check meta input file
-        if check_inputFile "$@" ; then
+        if check_inputFile "$@"; then
             :
             #echo " -> All checks done"
 
             echo "Running masscan..."
             # running masscan
             masscan_jsonOutput "$1"
-            
+
             echo "Extracting Ips"
             # extracting ips from json output
             extractIp_jq
-            
+
             echo "Running nrich..."
             # running nrich
             nrich_scan_json
@@ -184,15 +173,9 @@ main()
     fi
 }
 
-
-
-
-
-
 # set -x																	# set Debug
 # for source issues
-if ! (return 0 2> /dev/null); then 
+if ! (return 0 2>/dev/null); then
     main "$@"
 fi
 # set +x																	# unset Debug
-
