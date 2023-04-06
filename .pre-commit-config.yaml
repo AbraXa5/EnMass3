@@ -1,0 +1,8 @@
+---
+repos:
+    - repo: https://github.com/jumanjihouse/pre-commit-hooks
+      rev: 3.0.0
+      hooks:
+          - name: Run shellcheck against shell scripts
+            id: shellcheck
+            log_file: log/shellcheck.log
