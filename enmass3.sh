@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-#bash -n driver.sh 		# dry run for syntax
-#bash -v driver.sh 	# trace
-#bash -x driver.sh 	# more vergbose trace
+#bash -n driver.sh      # dry run for syntax
+#bash -v driver.sh  # trace
+#bash -x driver.sh  # more vergbose trace
 
 #Fail safe
 set -o errexit  # fail on exit

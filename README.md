@@ -6,9 +6,10 @@
 
 EnMass3 is a port scanner that utilizes the functionality of both [masscan](https://github.com/robertdavidgraham/masscan) and [nrich](https://gitlab.com/shodan-public/nrich). The tool was built with the mindset of scanning the internet to find vulnerable endpoints, but **FOR THE ENTIRE INTERNET**.
 
-Port scanning is in the **grey area**, you should scan **ONLY** if you have permission from the apprioriate organization.
+EnMass3 will take an input file with CDIR notation, scan the IP ranges for the top 20 common vulnerable ports.  Once IP and ports are found, the information is parsed
+to nrich and the new EnMass3 output file will contain IP, Ports, Tags, and Vulnerabilities of each vulnerable asset found.  Output is currently available in SHELL (aka text) and JSON formats.
 
-Masscan asynchronously scans the ip ranges as a **CIDR** notation, and parses the alive host to nrich to gather vulnerability information about each port found by the scan. With nrich, it will generate a newly created output, with clear coloring between ports and CVEs of the ip addresses.
+**Please Note:** Port scanning is in the **grey area**, you should scan **ONLY** if you have permission from the apprioriate organization.
 
 The [AntiScanIPList.txt](./files/AntiScanIPList.txt) is a list which includes IP ranges. These IPs will be excluded for the safety of the users. This list does not offer all IPs to be blacklisted, the user can add additional IPs if they so choose.
 
@@ -41,6 +42,10 @@ Create file with CIDR notations, see below for example:
 172.16.0.0/16
 172.16.1.0/24
 ```
+2. `sudo ./enmass3.sh [Input File]`
+3. Review `EnMass3_output.txt & EnMass3_output.json` files for vulnerable targets.
+
+**IMPORTANT:** Use a VPN to avoid the possibility of getting your IP banned from your local ISP.
 
 _Be sure to use a VPN to avoid the possibility of getting banned from your ISP._
 
