@@ -28,7 +28,7 @@ function fail() {
 }
 
 function install_dependencies() {
-    sudo apt-get update -qq >/dev/null
+    sudo apt-get update -qq >/dev/null || fail "Failed to update"
     sudo apt-get install -y -qq git make gcc libpcap-dev >/dev/null || fail "Failed to install dependencies"
     return 0
 }
@@ -38,8 +38,8 @@ function check_masscan() {
         info "Masscan is not installed, Installing now!!"
         #building from source
         #echo 'Installing Dependancies for masscan'
-        #cd /opt && git clone https://github.com/robertdavidgraham/masscan 1>/dev/null 2>depenadancies.error_log.log
-        #cd /opt/masscan && make 1>/dev/null 2>depenadancies.error_log.log
+        #cd /opt && git clone https://github.com/robertdavidgraham/masscan 1>/dev/null 2>./log/depenadancies.error_log.log
+        #cd /opt/masscan && make 1>/dev/null 2>./log/depenadancies.error_log.log
 
         #using repo
         sudo apt-get install -y -qq masscan 2>./log/depenadancies.error_log.log ||
@@ -51,8 +51,6 @@ function check_masscan() {
     else
         :
         success "Masscan already installed"
-
-        #echo 'masscan installed'
         #return 0
     fi
 
@@ -76,8 +74,6 @@ function check_nrich() {
     else
         :
         success "Nrich already installed"
-
-        #echo 'nrich installed'
         #return 0
     fi
 
@@ -97,8 +93,6 @@ function check_jq() {
     else
         :
         success "JQ already installed"
-
-        #echo 'jq already installed'
         #return 0
     fi
 
@@ -171,8 +165,7 @@ main() {
 
     # checking if inputfile is provided as a parameter
     [[ "$#" -eq "0" ]] && {
-        fail "No inputfile provided"
-
+        fail "No input file provided"
     }
     # || {
     #     fileName=$1
