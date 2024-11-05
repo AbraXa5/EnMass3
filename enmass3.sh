@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
-#bash -n driver.sh      # dry run for syntax
+#bash -n driver.sh  # dry run for syntax
 #bash -v driver.sh  # trace
 #bash -x driver.sh  # more vergbose trace
 
-#Fail safe
+# Fail safe mech
 set -o errexit  # fail on exit
 set -o nounset  # fail on variable issues
 set -o pipefail # fail for pipe related stuff
@@ -28,133 +28,88 @@ function fail() {
 }
 
 function install_dependencies() {
+    # Check if dependencies are already installed
+    if command -v git &> /dev/null && command -v make &> /dev/null && command -v gcc &> /dev/null && command -v libpcap-dev &> /dev/null; then
+        success "Dependencies already installed"
+        return 0
+    fi
+
     sudo apt-get update -qq >/dev/null || fail "Failed to update"
     sudo apt-get install -y -qq git make gcc libpcap-dev >/dev/null || fail "Failed to install dependencies"
-    return 0
 }
 
 function check_masscan() {
-    if ! [ -x "$(command -v masscan)" ]; then
+    if ! command -v masscan &> /dev/null; then
         info "Masscan is not installed, Installing now!!"
+
         #building from source
         #echo 'Installing Dependancies for masscan'
         #cd /opt && git clone https://github.com/robertdavidgraham/masscan 1>/dev/null 2>./log/depenadancies.error_log.log
         #cd /opt/masscan && make 1>/dev/null 2>./log/depenadancies.error_log.log
-
-        #using repo
-        sudo apt-get install -y -qq masscan 2>./log/depenadancies.error_log.log ||
-            fail "Couldn't install masscan"
-
+        
+        sudo apt-get install -y -qq masscan 2>./log/masscan_install.log || fail "Couldn't install Masscan"
         success "Masscan Installed"
-
-        return 0
     else
-        :
         success "Masscan already installed"
-        #return 0
     fi
-
 }
 
-function check_nrich() {
-    if ! [ -x "$(command -v nrich)" ]; then
-        :
 
+function check_nrich() {
+    if ! command -v nrich &> /dev/null; then
         info "Nrich is not installed, Installing now!!"
 
-        sudo apt-get install -y -qq wget 2>depenadancies.error_log.log
         # mkdir -p /tmp && cd "$_"
-        wget -q https://gitlab.com/api/v4/projects/33695681/packages/generic/nrich/latest/nrich_latest_amd64.deb -O /tmp/nrich_latest_amd64.deb 2>./log/depenadancies.error_log.log
+        wget -q https://gitlab.com/api/v4/projects/33695681/packages/generic/nrich/latest/nrich_latest_amd64.deb -O /tmp/nrich_latest_amd64.deb 2>./log/nrich_install.log
+        sudo apt-get install -y -qq /tmp/nrich_latest_amd64.deb 2>./log/nrich_install.log || fail "Couldn't install Nrich"
 
-        sudo apt-get install -y -qq /tmp/nrich_latest_amd64.deb 2>./log/depenadancies.error_log.log ||
-            fail "Couldn't install Nrich"
-
-        success "Nrich Installed" ||
-            return 0
+        success "Nrich Installed"
     else
-        :
         success "Nrich already installed"
-        #return 0
     fi
-
 }
 
 function check_jq() {
-    if ! [ -x "$(command -v jq)" ]; then
-        :
+    if ! command -v jq &> /dev/null; then
         info "jq is not installed, Installing now!!"
 
-        sudo apt-get install -qq -y jq 2>./log/depenadancies.error_log.log ||
-            fail "Couldn't install jq"
-
+        sudo apt-get install -qq -y jq 2>./log/jq_install.log || fail "Couldn't install jq"
         success "jq Installed"
-
-        return 0
     else
-        :
-        success "JQ already installed"
-        #return 0
+        success "jq already installed"
     fi
-
 }
 
-function check_inputFile() {
-    inputFile="$1"
-    if [ -f "${inputFile}" ]; then
-        success "${inputFile} exists"
-
-        if grep -q -E '[0-9]{1,3}(\.[0-9]{1,3}){0,3}/[0-9]+' "${inputFile}"; then
-            info "${inputFile} format is valid"
-            return 0
-        else
-            question "${inputFile} has invalid IP CIDR blocks, provide one in a valid format"
-        fi
-    else
+function check_inputFile(inputFile) {
+    if [[ ! -f "$inputFile" ]]; then
         fail "${inputFile} does not exist, please provide a valid file name"
     fi
+
+    # TODO: Find something more robust
+    if ! grep -q -E '[0-9]{1,3}(\.[0-9]{1,3}){0,3}/[0-9]+' "$inputFile"; then
+        question "${inputFile} has invalid IP CIDR blocks. Please provide a file with valid IP CIDR blocks in the format: 192.168.1.0/24"
+        exit 1
+    fi
+
+    success "${inputFile} is valid"
 }
 
-# function masscan_grepaableOutput()
-# {
-#     sudo masscan -iL "$1" --excludeFile AntiScanIPList.txt --top-ports 20 ---max-rate 100000 -oG masscan_output.txt 2>|./log/masscan.error_log.log
-# }
-
-function masscan_jsonOutput() {
-    sudo masscan -iL "$1" --excludeFile files/AntiScanIPList.txt --top-ports 20 ---max-rate 100000 -oJ masscan_output.json 2>|./log/masscan.error_log.log
+function masscan_scan(inputFile) {
+    excludeFile="AntiScanIPList.txt"
+    masscan -iL "$inputFile" --excludeFile "$excludeFile" --top-ports 20 --max-rate 100000 -oJ masscan_output.json 2>./log/masscan.log
 }
 
-# function extractIp_awk()
-# {
-#     while IFS= read -r line || [[ -n "$line" ]]; do
-#         awk '{print $4}' >> nrich_input.txt
-#     done < masscan_output.txt
-# }
-
-function extractIp_jq() {
-    jq -r '.[].ip' masscan_output.json >>nrich_input.txt
+function extract_ips(inputFile) {
+    # masscan -iL "$inputFile" --excludeFile "$excludeFile" --top-ports 20 --max-rate 100000 -oJ masscan_output.json 2>./log/masscan.log | jq -r '.[].ip' >> nrich_input.txt
+    jq -r '.[].ip' masscan_output.json >> nrich_input.txt
 }
 
-function nrichScan_json() {
-    nrich --output json nrich_input.txt 1>|./enmass3.json 2>|./nrich.error_log.log
-}
-
-# function nrichScan_ndjson()
-# {
-#     nrich --output ndjson nrich_input.txt 1>|./enmass3.ndjson 2>|./log/nrich.error_log.log
-# }
-
-# function nrichScan_shell()
-# {
-#     nrich --output shell nrich_input.txt 1>|./enmass3.txt 2>|./log/nrich.error_log.log
-# }
-
-trapcleanup() {
-    #rm -f nrich_input.txt
-    fail 'Trapped!'
+function nrich_scan() {
+    nrich --output json nrich_input.txt 1>enmass3.json 2>./log/nrich.log
 }
 
 main() {
-    trap trapcleanup INT TERM ERR
+    trap 'fail "Interrupted"' INT TERM ERR
     clear
 
     # checking for sudo perms
@@ -173,24 +128,24 @@ main() {
     #     echo ""
     # }
 
-    if install_dependencies && check_masscan && check_nrich && check_jq; then
-        :
-        if check_inputFile "$@"; then
-            :
-            fileName=$1
-            info "Running masscan..."
-            masscan_jsonOutput "$fileName"
+    inputFile="$1"
 
-            info "Extracting Ips"
-            extractIp_jq
+    install_dependencies
+    check_masscan
+    check_nrich
+    check_jq
+    check_inputFile "$inputFile"
 
-            info "Running nrich..."
-            nrichScan_json
+    info "Running Masscan..."
+    masscan_scan "$inputFile"
 
-            success "Scanning complete! Look at enmass.json for the results"
-            times
-        fi
-    fi
+    info "Extracting IPs..."
+    extract_ips "$inputFile"
+
+    info "Running Nrich..."
+    nrich_scan
+
+    success "Scanning complete! Look at enmass3.json for the results"
 }
 
 # set -x																	# set Debug
