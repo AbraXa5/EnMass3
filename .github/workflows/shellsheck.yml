@@ -1,0 +1,15 @@
+name: Lint using shellcheck
+on:
+  push:
+    branches: [main, developemnt, refactor]
+  pull_request:
+    branches: [main]
+    workflow_dispatch: # Run workflow manually
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: run shellcheck
+        uses: sudo-bot/action-shellcheck@latest
