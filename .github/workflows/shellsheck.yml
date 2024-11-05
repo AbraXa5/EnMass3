@@ -14,4 +14,4 @@ jobs:
       - name: run shellcheck
         uses: sudo-bot/action-shellcheck@latest
         with:
-          cli-args: "enmass3"
+          cli-args: "enmass3.sh"
