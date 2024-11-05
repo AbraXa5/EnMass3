@@ -140,17 +140,24 @@ main() {
     #     fail "Exitting..."
     # fi
 
-    # checking if inputfile is provided as a parameter
     [[ "$#" -eq "0" ]] && {
-        fail "No input file provided"
+        fail "No inputs provided"
     }
-    # || {
-    #     fileName=$1
-    #     info "${fileName:?No file} being used as the input file"
-    #     echo ""
-    # }
-
+    
+    # Manual input if no cli args
+    if [[ $# -eq 0 ]]; then
+        fail "Please provide an input file"
+    fi
     inputFile="$1"
+    
+    # Check if output formats are provided
+    if [[ $# -gt 1 ]]; then
+        masscanOutputFormat="${2:-json}"
+        nrichOutputFormat="${3:-json}"
+    else
+        read -p "Choose Masscan output format (greppable/json, default: json): " masscanOutputFormat
+        read -p "Choose Nrich output format (json/shell/ndjson, default: json): " nrichOutputFormat
+    fi
 
     install_dependencies
     check_masscan
