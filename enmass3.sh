@@ -94,18 +94,40 @@ function check_inputFile(inputFile) {
     success "${inputFile} is valid"
 }
 
-function masscan_scan(inputFile) {
+function masscan_scan(masscanOutputFormat, inputFile) {
+    masscanOutputFormat="${masscanOutputFormat:-json}"  # Default to JSON
     excludeFile="AntiScanIPList.txt"
-    masscan -iL "$inputFile" --excludeFile "$excludeFile" --top-ports 20 --max-rate 100000 -oJ masscan_output.json 2>./log/masscan.log
+    
+    if [[ "$masscanOutputFormat" == "greppable" ]]; then
+        masscan -iL "$inputFile" --excludeFile "$excludeFile" --top-ports 20 --max-rate 100000 -oG masscan_output.txt 2>./log/masscan.log
+    elif [[ "$masscanOutputFormat" == "json" ]]; then
+        masscan -iL "$inputFile" --excludeFile "$excludeFile" --top-ports 20 --max-rate 100000 -oJ masscan_output.json 2>./log/masscan.log
+    else
+        fail "Invalid Masscan output format. Please choose 'greppable' or 'json'."
+    fi
 }
 
-function extract_ips(inputFile) {
-    # masscan -iL "$inputFile" --excludeFile "$excludeFile" --top-ports 20 --max-rate 100000 -oJ masscan_output.json 2>./log/masscan.log | jq -r '.[].ip' >> nrich_input.txt
-    jq -r '.[].ip' masscan_output.json >> nrich_input.txt
+function extract_ips(masscanOutputFormat, inputFile) {
+    if [[ "$masscanOutputFormat" == "greppable" ]]; then
+        awk '{print $4}' masscan_output.txt > nrich_input.txt
+    elif [[ "$masscanOutputFormat" == "json" ]]; then
+        #masscan -iL "$inputFile" --excludeFile "$excludeFile" --top-ports 20 --max-rate 100000 -oJ masscan_output.json 2>./log/masscan.log | jq -r '.[].ip' > nrich_input.txt
+        jq -r '.[].ip' masscan_output.json >> nrich_input.txt
+    fi
 }
 
-function nrich_scan() {
-    nrich --output json nrich_input.txt 1>enmass3.json 2>./log/nrich.log
+function nrich_scan(nrichOutputFormat) {
+    nrichOutputFormat="${nrichOutputFormat:-json}"  # Default to JSON
+
+    if [[ "$nrichOutputFormat" == "json" ]]; then
+        nrich --output json nrich_input.txt 1>enmass3.json 2>./log/nrich.log
+    elif [[ "$nrichOutputFormat" == "shell" ]]; then
+        nrich --output shell nrich_input.txt 1>enmass3.txt 2>./log/nrich.log
+    elif [[ "$nrichOutputFormat" == "ndjson" ]]; then
+        nrich --output ndjson nrich_input.txt 1>enmass3.ndjson 2>./log/nrich.log
+    else
+        fail "Invalid Nrich output format. Please choose 'json', 'shell', or 'ndjson'."
+    fi
 }
 
 main() {
@@ -136,14 +158,17 @@ main() {
     check_jq
     check_inputFile "$inputFile"
 
-    info "Running Masscan..."
-    masscan_scan "$inputFile"
+    read -p "Choose Masscan output format (greppable/json, default: json): " masscanOutputFormat
+    read -p "Choose Nrich output format (json/shell/ndjson, default: json): " nrichOutputFormat
 
+    info "Running Masscan..."
+    masscan_scan "$masscanOutputFormat" "$inputFile"
+    
     info "Extracting IPs..."
-    extract_ips "$inputFile"
+    extract_ips "$masscanOutputFormat" "$inputFile"
 
     info "Running Nrich..."
-    nrich_scan
+    nrich_scan "$nrichOutputFormat"
 
     success "Scanning complete! Look at enmass3.json for the results"
 }
