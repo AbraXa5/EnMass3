@@ -13,3 +13,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: run shellcheck
         uses: sudo-bot/action-shellcheck@latest
+        with:
+          cli-args: "enmass3"
