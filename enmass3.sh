@@ -80,7 +80,8 @@ function check_jq() {
     fi
 }
 
-function check_inputFile(inputFile) {
+function check_inputFile() {
+    inputFile="$1"
     if [[ ! -f "$inputFile" ]]; then
         fail "${inputFile} does not exist, please provide a valid file name"
     fi
@@ -94,8 +95,9 @@ function check_inputFile(inputFile) {
     success "${inputFile} is valid"
 }
 
-function masscan_scan(masscanOutputFormat, inputFile) {
-    masscanOutputFormat="${masscanOutputFormat:-json}"  # Default to JSON
+function masscan_scan() {
+    masscanOutputFormat="${1:-json}"  # Default to JSON
+    inputFile="$2"
     excludeFile="AntiScanIPList.txt"
     
     if [[ "$masscanOutputFormat" == "greppable" ]]; then
@@ -107,7 +109,10 @@ function masscan_scan(masscanOutputFormat, inputFile) {
     fi
 }
 
-function extract_ips(masscanOutputFormat, inputFile) {
+function extract_ips() {
+    masscanOutputFormat="$1"
+    inputFile="$2"
+    
     if [[ "$masscanOutputFormat" == "greppable" ]]; then
         awk '{print $4}' masscan_output.txt > nrich_input.txt
     elif [[ "$masscanOutputFormat" == "json" ]]; then
@@ -116,8 +121,8 @@ function extract_ips(masscanOutputFormat, inputFile) {
     fi
 }
 
-function nrich_scan(nrichOutputFormat) {
-    nrichOutputFormat="${nrichOutputFormat:-json}"  # Default to JSON
+function nrich_scan() {
+    nrichOutputFormat="${1:-json}"  # Default to JSON
 
     if [[ "$nrichOutputFormat" == "json" ]]; then
         nrich --output json nrich_input.txt 1>enmass3.json 2>./log/nrich.log
@@ -155,8 +160,8 @@ main() {
         masscanOutputFormat="${2:-json}"
         nrichOutputFormat="${3:-json}"
     else
-        read -p "Choose Masscan output format (greppable/json, default: json): " masscanOutputFormat
-        read -p "Choose Nrich output format (json/shell/ndjson, default: json): " nrichOutputFormat
+        read -p "Choose Masscan output format (greppable/json, default: json): " -r masscanOutputFormat
+        read -p "Choose Nrich output format (json/shell/ndjson, default: json): " -r nrichOutputFormat
     fi
 
     install_dependencies
@@ -165,8 +170,6 @@ main() {
     check_jq
     check_inputFile "$inputFile"
 
-    read -p "Choose Masscan output format (greppable/json, default: json): " masscanOutputFormat
-    read -p "Choose Nrich output format (json/shell/ndjson, default: json): " nrichOutputFormat
 
     info "Running Masscan..."
     masscan_scan "$masscanOutputFormat" "$inputFile"
