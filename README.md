@@ -42,8 +42,9 @@ Create file with CIDR notations, see below for example:
 172.16.0.0/16
 172.16.1.0/24
 ```
-2. `sudo ./enmass3.sh [Input File]`
-3. Review `EnMass3_output.txt & EnMass3_output.json` files for vulnerable targets.
+2. `sudo ./enmass3.sh <Input File> [masscan output format] [nrich output format]`
+    - Masscan and nrich output format are optional and will default to JSON if none provided.  
+4. Review `EnMass3_output.txt & EnMass3_output.json` files for vulnerable targets.
 
 **IMPORTANT:** Use a VPN to avoid the possibility of getting your IP banned from your local ISP.
 
